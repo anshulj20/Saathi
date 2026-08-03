@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+:root {
+  --color-cream: oklch(0.97 0.012 70);
+  --color-ink: oklch(0.2 0.02 50);
+  --color-ink-soft: oklch(0.24 0.02 50);
+  --color-muted: oklch(0.55 0.02 55);
+  --color-border: oklch(0.87 0.02 60);
+  --color-border-soft: oklch(0.8 0.02 60);
+
+  --color-primary: oklch(0.62 0.15 45);
+  --color-primary-dark: oklch(0.46 0.14 45);
+  --color-primary-darker: oklch(0.4 0.13 45);
+  --color-primary-tint: oklch(0.93 0.05 45);
+
+  --color-success: oklch(0.38 0.1 150);
+  --color-success-tint: oklch(0.93 0.05 150);
+
+  --color-danger: oklch(0.56 0.19 25);
+  --color-danger-tint: oklch(0.93 0.05 25);
+}
+
+@theme inline {
+  --color-cream: var(--color-cream);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-muted: var(--color-muted);
+  --color-border: var(--color-border);
+  --color-border-soft: var(--color-border-soft);
+
+  --color-primary: var(--color-primary);
+  --color-primary-dark: var(--color-primary-dark);
+  --color-primary-darker: var(--color-primary-darker);
+  --color-primary-tint: var(--color-primary-tint);
+
+  --color-success: var(--color-success);
+  --color-success-tint: var(--color-success-tint);
+
+  --color-danger: var(--color-danger);
+  --color-danger-tint: var(--color-danger-tint);
+
+  --font-serif: var(--font-newsreader);
+  --font-sans: var(--font-work-sans);
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}

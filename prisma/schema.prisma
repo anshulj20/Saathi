@@ -1,0 +1,226 @@
+// Saathi MVP1 data model — see Tech build plan.txt "Data model" section.
+// Field names are camelCase in the Prisma client, mapped to snake_case columns.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  customer
+  nurse
+  admin
+}
+
+enum UserStatus {
+  pending_vetting
+  active
+  suspended
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum SlotStatus {
+  available
+  blocked
+}
+
+enum BookingStatus {
+  pending_payment
+  confirmed
+  in_progress
+  completed
+  cancelled
+  // Not in the original tech spec's 5-value enum — added for nurse-initiated
+  // cancellation + admin-assisted reassignment (explicitly requested, even
+  // though auto-reassignment is a listed PM non-goal for MVP1).
+  reassignment_pending
+  reassignment_offered
+}
+
+enum PaymentStatus {
+  awaiting_confirmation
+  confirmed
+}
+
+enum SosTriggeredBy {
+  nurse
+  customer
+}
+
+enum SosRoute {
+  emergency_services
+  caregiver_emergency_contact
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  role         UserRole
+  name         String
+  phone        String     @unique
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(pending_vetting)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  nurseProfile    NurseProfile?
+  customerProfile CustomerProfile?
+  patientProfile  PatientProfile?
+
+  emergencyContacts EmergencyContact[]
+  availabilitySlots AvailabilitySlot[]
+
+  bookingsAsCustomer Booking[] @relation("CustomerBookings")
+  bookingsAsNurse    Booking[] @relation("NurseBookings")
+
+  ratingsAsNurse Rating[] @relation("NurseRatings")
+
+  paymentsConfirmed PaymentReference[] @relation("AdminConfirmedPayments")
+
+  @@map("users")
+}
+
+model NurseProfile {
+  userId          String   @id @map("user_id") @db.Uuid
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specializations String[]
+  experienceYears Int      @map("experience_years")
+  pricePerDay     Decimal  @map("price_per_day") @db.Decimal(10, 2)
+  gender          Gender
+  locationText    String   @map("location_text")
+  bio             String?
+  ratingAvg       Decimal  @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount     Int      @default(0) @map("rating_count")
+
+  @@map("nurse_profiles")
+}
+
+model CustomerProfile {
+  userId       String @id @map("user_id") @db.Uuid
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationText String @map("location_text")
+
+  @@map("customer_profiles")
+}
+
+model PatientProfile {
+  id               String   @id @default(uuid()) @db.Uuid
+  customerUserId   String   @unique @map("customer_user_id") @db.Uuid
+  customer         User     @relation(fields: [customerUserId], references: [id], onDelete: Cascade)
+  patientName      String   @map("patient_name")
+  conditionSummary String   @map("condition_summary")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  bookings Booking[]
+
+  @@map("patient_profiles")
+}
+
+model EmergencyContact {
+  id             String @id @default(uuid()) @db.Uuid
+  customerUserId String @map("customer_user_id") @db.Uuid
+  customer       User   @relation(fields: [customerUserId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String
+  relation       String
+
+  @@index([customerUserId])
+  @@map("emergency_contacts")
+}
+
+model AvailabilitySlot {
+  id          String     @id @default(uuid()) @db.Uuid
+  nurseUserId String     @map("nurse_user_id") @db.Uuid
+  nurse       User       @relation(fields: [nurseUserId], references: [id], onDelete: Cascade)
+  startTime   DateTime   @map("start_time")
+  endTime     DateTime   @map("end_time")
+  status      SlotStatus @default(available)
+
+  @@index([nurseUserId, status])
+  @@map("availability_slots")
+}
+
+model Booking {
+  id               String         @id @default(uuid()) @db.Uuid
+  customerUserId   String         @map("customer_user_id") @db.Uuid
+  customer         User           @relation("CustomerBookings", fields: [customerUserId], references: [id])
+  nurseUserId      String         @map("nurse_user_id") @db.Uuid
+  nurse            User           @relation("NurseBookings", fields: [nurseUserId], references: [id])
+  patientProfileId String         @map("patient_profile_id") @db.Uuid
+  patientProfile   PatientProfile @relation(fields: [patientProfileId], references: [id])
+  startTime        DateTime       @map("start_time")
+  endTime          DateTime       @map("end_time")
+  status           BookingStatus  @default(pending_payment)
+  careInstructions String         @map("care_instructions")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  actualStartAt    DateTime?      @map("actual_start_at")
+  actualEndAt      DateTime?      @map("actual_end_at")
+
+  paymentReference PaymentReference?
+  sosEvents        SosEvent[]
+  rating           Rating?
+  notifications    NotificationLog[]
+
+  @@index([customerUserId])
+  @@index([nurseUserId])
+  @@index([nurseUserId, status])
+  @@map("bookings")
+}
+
+model PaymentReference {
+  id                 String        @id @default(uuid()) @db.Uuid
+  bookingId          String        @unique @map("booking_id") @db.Uuid
+  booking            Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  qrReferenceCode    String        @unique @map("qr_reference_code")
+  status             PaymentStatus @default(awaiting_confirmation)
+  confirmedByAdminId String?       @map("confirmed_by_admin_id") @db.Uuid
+  confirmedByAdmin   User?         @relation("AdminConfirmedPayments", fields: [confirmedByAdminId], references: [id])
+  confirmedAt        DateTime?     @map("confirmed_at")
+
+  @@map("payment_references")
+}
+
+model SosEvent {
+  id          String         @id @default(uuid()) @db.Uuid
+  bookingId   String         @map("booking_id") @db.Uuid
+  booking     Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  triggeredBy SosTriggeredBy @map("triggered_by")
+  route       SosRoute
+  triggeredAt DateTime       @default(now()) @map("triggered_at")
+
+  @@index([bookingId])
+  @@map("sos_events")
+}
+
+model Rating {
+  id           String   @id @default(uuid()) @db.Uuid
+  bookingId    String   @unique @map("booking_id") @db.Uuid
+  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  nurseUserId  String   @map("nurse_user_id") @db.Uuid
+  nurse        User     @relation("NurseRatings", fields: [nurseUserId], references: [id])
+  stars        Int
+  feedbackText String?  @map("feedback_text")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([nurseUserId])
+  @@map("ratings")
+}
+
+model NotificationLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  type      String
+  bookingId String?  @map("booking_id") @db.Uuid
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications_log")
+}
