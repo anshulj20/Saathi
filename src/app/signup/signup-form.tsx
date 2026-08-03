@@ -97,19 +97,48 @@ export function SignupForm({
       </FormField>
 
       {role === "customer" && (
-        <FormField
-          label="Household location"
-          htmlFor="locationText"
-          error={errors.locationText?.[0]}
-          hint="Neighbourhood/area — used to match nearby nurses."
-        >
-          <Input
-            id="locationText"
-            name="locationText"
-            placeholder="Indiranagar, Bengaluru"
-            required
-          />
-        </FormField>
+        <>
+          <FormField
+            label="Household location"
+            htmlFor="locationText"
+            error={errors.locationText?.[0]}
+            hint="Neighbourhood/area — used to match nearby nurses."
+          >
+            <Input
+              id="locationText"
+              name="locationText"
+              placeholder="Indiranagar, Bengaluru"
+              required
+            />
+          </FormField>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            <FormField
+              label="Patient's name"
+              htmlFor="patientName"
+              error={errors.patientName?.[0]}
+            >
+              <Input
+                id="patientName"
+                name="patientName"
+                placeholder="Lakshmi Krishnan"
+                required
+              />
+            </FormField>
+            <FormField
+              label="Patient's condition"
+              htmlFor="conditionSummary"
+              error={errors.conditionSummary?.[0]}
+            >
+              <Input
+                id="conditionSummary"
+                name="conditionSummary"
+                placeholder="Early-stage Alzheimer's"
+                required
+              />
+            </FormField>
+          </div>
+        </>
       )}
 
       {role === "nurse" && (

@@ -1,21 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField, Input, Textarea } from "@/components/ui/form";
 import { StarRatingDisplay } from "@/components/ui/star-rating";
-import { cn } from "@/lib/ui";
+import { computeBookingWindow, computePrice } from "@/lib/booking";
 import {
-  DURATION_OPTIONS,
-  computeBookingWindow,
-  computePrice,
-  earliestBookableStart,
-  suggestedBookableStart,
-} from "@/lib/booking";
-import {
-  trackBookingInitiated,
   trackCareInstructionsCompleted,
   trackPaymentQrGenerated,
 } from "@/lib/posthog-events";
@@ -29,37 +21,25 @@ type Nurse = {
   pricePerDay: number;
 };
 
-type ExistingPatient = { name: string; condition: string } | null;
+type Patient = { name: string; condition: string };
 type ExistingContact = { name: string; phone: string; relation: string } | null;
-
-function toDateInputValue(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
 
 export function BookingFlow({
   nurse,
-  existingPatient,
+  startTime,
+  duration,
+  patient,
   existingContact,
 }: {
   nurse: Nurse;
-  existingPatient: ExistingPatient;
+  startTime: string;
+  duration: string;
+  patient: Patient;
   existingContact: ExistingContact;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const earliest = useMemo(() => earliestBookableStart(), []);
-  const suggested = useMemo(() => suggestedBookableStart(), []);
-
-  const [startDate, setStartDate] = useState(toDateInputValue(suggested));
-  const [startTimeStr, setStartTimeStr] = useState(
-    `${String(suggested.getHours()).padStart(2, "0")}:${String(
-      suggested.getMinutes()
-    ).padStart(2, "0")}`
-  );
-  const [duration, setDuration] = useState("1d");
+  const [step, setStep] = useState<1 | 2>(1);
 
   const [careInstructions, setCareInstructions] = useState("");
-  const [patientName, setPatientName] = useState("");
-  const [conditionSummary, setConditionSummary] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactRelation, setContactRelation] = useState("");
@@ -70,36 +50,13 @@ export function BookingFlow({
     null
   );
 
-  const startDateTime = useMemo(() => {
-    if (!startDate || !startTimeStr) return null;
-    const d = new Date(`${startDate}T${startTimeStr}:00`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }, [startDate, startTimeStr]);
-
-  const window = startDateTime ? computeBookingWindow(startDateTime, duration) : null;
+  const startDateTime = new Date(startTime);
+  const window = computeBookingWindow(startDateTime, duration);
   const totalPrice = computePrice(nurse.pricePerDay, duration);
-
-  function handleContinueToDetails() {
-    if (!startDateTime) {
-      setError("Pick a start date and time.");
-      return;
-    }
-    if (startDateTime < earliestBookableStart()) {
-      setError("Bookings need at least 8 hours' notice.");
-      return;
-    }
-    setError(null);
-    trackBookingInitiated(nurse.id);
-    setStep(2);
-  }
 
   async function handleContinueToPayment() {
     if (!careInstructions.trim()) {
       setError("Care instructions are required.");
-      return;
-    }
-    if (!existingPatient && (!patientName.trim() || !conditionSummary.trim())) {
-      setError("Patient name and condition are required.");
       return;
     }
     if (
@@ -115,13 +72,9 @@ export function BookingFlow({
 
     const fd = new FormData();
     fd.set("nurseId", nurse.id);
-    fd.set("startTime", startDateTime!.toISOString());
+    fd.set("startTime", startTime);
     fd.set("duration", duration);
     fd.set("careInstructions", careInstructions.trim());
-    if (!existingPatient) {
-      fd.set("patientName", patientName.trim());
-      fd.set("conditionSummary", conditionSummary.trim());
-    }
     if (!existingContact) {
       fd.set("contactName", contactName.trim());
       fd.set("contactPhone", contactPhone.trim());
@@ -139,16 +92,13 @@ export function BookingFlow({
     trackCareInstructionsCompleted(res.bookingId);
     setResult(res);
     trackPaymentQrGenerated(res.bookingId);
-    setStep(3);
+    setStep(2);
   }
 
   return (
     <div className="grid md:grid-cols-[1fr_280px] gap-10">
       <div className="flex flex-col gap-6">
-        <StepIndicator
-          steps={["Dates & Duration", "Care Details", "Payment"]}
-          current={step}
-        />
+        <StepIndicator steps={["Care Details", "Payment"]} current={step} />
 
         {error && (
           <p className="text-sm text-danger bg-danger-tint rounded-lg px-4 py-3">
@@ -159,107 +109,23 @@ export function BookingFlow({
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <h1 className="font-serif text-2xl font-semibold text-ink">
-              When do you need {nurse.name.split(" ")[0]}?
+              Tell {nurse.name.split(" ")[0]} what to expect
             </h1>
-
-            <div className="grid sm:grid-cols-2 gap-5">
-              <FormField label="Start date" htmlFor="startDate">
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </FormField>
-              <FormField label="Start time" htmlFor="startTimeStr">
-                <Input
-                  id="startTimeStr"
-                  type="time"
-                  value={startTimeStr}
-                  onChange={(e) => setStartTimeStr(e.target.value)}
-                />
-              </FormField>
-            </div>
-
-            <p className="text-xs text-muted">
-              Bookings need at least 8 hours&apos; notice — the earliest
-              start from right now is{" "}
-              {earliest.toLocaleString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
+            <p className="text-sm text-muted -mt-3">
+              {startDateTime.toLocaleString(undefined, {
                 day: "numeric",
                 month: "short",
-              })}
-              .
+                hour: "numeric",
+                minute: "2-digit",
+              })}{" "}
+              · {window?.shifts ?? 1} day{(window?.shifts ?? 1) > 1 ? "s" : ""}
             </p>
 
             <div>
-              <p className="text-sm font-medium text-ink mb-2">
-                How long do you need care?
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {DURATION_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setDuration(opt.value)}
-                    className={cn(
-                      "px-4 py-2 rounded-lg border text-sm font-medium",
-                      duration === opt.value
-                        ? "bg-primary text-white border-primary"
-                        : "border-border text-ink-soft hover:bg-primary-tint/40"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {window && window.shifts > 1 && (
-                <p className="text-xs text-muted mt-2">
-                  Your booking will run as {window.shifts} consecutive
-                  one-day shifts, {startTimeStr} – {startTimeStr}.
-                </p>
-              )}
-            </div>
-
-            <Button onClick={handleContinueToDetails} className="w-fit">
-              Continue to Care Details →
-            </Button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="flex flex-col gap-5">
-            <h1 className="font-serif text-2xl font-semibold text-ink">
-              Tell {nurse.name.split(" ")[0]} what to expect
-            </h1>
-
-            <div>
               <p className="text-sm font-medium text-ink mb-1">Patient</p>
-              {existingPatient ? (
-                <p className="text-sm text-ink-soft border border-border rounded-lg px-3.5 py-3 bg-white">
-                  {existingPatient.name} · {existingPatient.condition}
-                </p>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-5">
-                  <FormField label="Patient name" htmlFor="patientName">
-                    <Input
-                      id="patientName"
-                      value={patientName}
-                      onChange={(e) => setPatientName(e.target.value)}
-                      placeholder="Lakshmi Krishnan"
-                    />
-                  </FormField>
-                  <FormField label="Condition summary" htmlFor="conditionSummary">
-                    <Input
-                      id="conditionSummary"
-                      value={conditionSummary}
-                      onChange={(e) => setConditionSummary(e.target.value)}
-                      placeholder="Early-stage Alzheimer's"
-                    />
-                  </FormField>
-                </div>
-              )}
+              <p className="text-sm text-ink-soft border border-border rounded-lg px-3.5 py-3 bg-white">
+                {patient.name} · {patient.condition}
+              </p>
             </div>
 
             <FormField label="Care instructions" htmlFor="careInstructions">
@@ -313,18 +179,13 @@ export function BookingFlow({
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep(1)}>
-                ← Back
-              </Button>
-              <Button onClick={handleContinueToPayment} disabled={pending}>
-                {pending ? "Creating booking…" : "Continue to Payment →"}
-              </Button>
-            </div>
+            <Button onClick={handleContinueToPayment} disabled={pending} className="w-fit">
+              {pending ? "Creating booking…" : "Continue to Payment →"}
+            </Button>
           </div>
         )}
 
-        {step === 3 && result && (
+        {step === 2 && result && (
           <div className="flex flex-col gap-5 items-start">
             <h1 className="font-serif text-2xl font-semibold text-ink">
               Pay securely via UPI
@@ -369,17 +230,11 @@ export function BookingFlow({
           <p className="font-semibold text-ink">{nurse.name}</p>
           <StarRatingDisplay value={nurse.ratingAvg} count={nurse.ratingCount} />
           <div className="border-t border-border my-2" />
-          {window ? (
-            <>
-              <p className="text-sm text-ink-soft">
-                {window.shifts} day{window.shifts > 1 ? "s" : ""} × ₹
-                {nurse.pricePerDay}
-              </p>
-              <p className="text-xl font-semibold text-ink">₹{totalPrice}</p>
-            </>
-          ) : (
-            <p className="text-sm text-muted">₹{nurse.pricePerDay} /8-hr shift</p>
-          )}
+          <p className="text-sm text-ink-soft">
+            {window?.shifts ?? 1} day{(window?.shifts ?? 1) > 1 ? "s" : ""} × ₹
+            {nurse.pricePerDay}
+          </p>
+          <p className="text-xl font-semibold text-ink">₹{totalPrice}</p>
         </Card>
       </div>
     </div>

@@ -18,8 +18,6 @@ const schema = z.object({
   startTime: z.string().min(1),
   duration: z.string().min(1),
   careInstructions: z.string().trim().min(1, { error: "Care instructions are required." }),
-  patientName: z.string().trim().optional(),
-  conditionSummary: z.string().trim().optional(),
   contactName: z.string().trim().optional(),
   contactPhone: z.string().trim().optional(),
   contactRelation: z.string().trim().optional(),
@@ -75,20 +73,11 @@ export async function createBookingAction(
     return { error: "This nurse is not available for booking." };
   }
 
-  let patientProfile = await prisma.patientProfile.findUnique({
+  const patientProfile = await prisma.patientProfile.findUnique({
     where: { customerUserId: user.id },
   });
   if (!patientProfile) {
-    if (!data.patientName || !data.conditionSummary) {
-      return { error: "Patient details are required for your first booking." };
-    }
-    patientProfile = await prisma.patientProfile.create({
-      data: {
-        customerUserId: user.id,
-        patientName: data.patientName,
-        conditionSummary: data.conditionSummary,
-      },
-    });
+    return { error: "Your account is missing patient details — contact Saathi Support." };
   }
 
   const existingContact = await prisma.emergencyContact.findFirst({

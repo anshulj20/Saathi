@@ -26,6 +26,14 @@ const customerSchema = z.object({
     .string()
     .trim()
     .min(2, { error: "Enter your household location." }),
+  patientName: z
+    .string()
+    .trim()
+    .min(2, { error: "Enter the patient's name." }),
+  conditionSummary: z
+    .string()
+    .trim()
+    .min(2, { error: "Briefly describe the patient's condition." }),
 });
 
 const nurseSchema = z.object({
@@ -74,6 +82,8 @@ export async function signupAction(
     email: formData.get("email"),
     password: formData.get("password"),
     locationText: formData.get("locationText"),
+    patientName: formData.get("patientName"),
+    conditionSummary: formData.get("conditionSummary"),
     gender: formData.get("gender"),
     experienceYears: formData.get("experienceYears"),
     pricePerDay: formData.get("pricePerDay"),
@@ -120,6 +130,13 @@ export async function signupAction(
     if (data.role === "customer") {
       await tx.customerProfile.create({
         data: { userId: user.id, locationText: data.locationText },
+      });
+      await tx.patientProfile.create({
+        data: {
+          customerUserId: user.id,
+          patientName: data.patientName,
+          conditionSummary: data.conditionSummary,
+        },
       });
     } else {
       await tx.nurseProfile.create({

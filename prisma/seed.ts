@@ -124,6 +124,38 @@ async function seedDemoNurses() {
   console.log(`${DEMO_NURSES.length} demo nurses ready (password: ${DEMO_PASSWORD})`);
 }
 
+// Search now filters by real-time availability, so demo nurses need actual
+// AvailabilitySlot rows or they'd never show up in search results.
+async function seedDemoAvailability() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  for (const nurse of DEMO_NURSES) {
+    const nurseUser = await prisma.user.findUniqueOrThrow({
+      where: { email: nurse.email },
+    });
+
+    const existing = await prisma.availabilitySlot.count({
+      where: { nurseUserId: nurseUser.id },
+    });
+    if (existing > 0) continue;
+
+    const slots = Array.from({ length: 14 }, (_, day) => {
+      const dayStart = new Date(todayStart.getTime() + day * 24 * 60 * 60 * 1000);
+      return {
+        nurseUserId: nurseUser.id,
+        status: "available" as const,
+        startTime: new Date(dayStart.getTime() + 6 * 60 * 60 * 1000), // 6am
+        endTime: new Date(dayStart.getTime() + 22 * 60 * 60 * 1000), // 10pm
+      };
+    });
+
+    await prisma.availabilitySlot.createMany({ data: slots });
+  }
+
+  console.log("Demo nurse availability seeded (next 14 days, 6am-10pm daily).");
+}
+
 const DEMO_REVIEWERS = [
   {
     name: "Meera Krishnan",
@@ -319,6 +351,7 @@ async function seedDemoReviews() {
 async function main() {
   await seedAdmin();
   await seedDemoNurses();
+  await seedDemoAvailability();
   await seedDemoReviews();
 }
 

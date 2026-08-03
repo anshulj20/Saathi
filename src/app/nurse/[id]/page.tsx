@@ -6,7 +6,8 @@ import { VerifiedBadge } from "@/components/ui/badge";
 import { StarRatingDisplay } from "@/components/ui/star-rating";
 import { Card } from "@/components/ui/card";
 import { TrackProfileViewed } from "@/components/track-event";
-import { buttonClasses } from "@/lib/ui";
+import { BookNowWidget } from "./book-now-widget";
+import { suggestedBookableStart, toDateInputValue, toTimeInputValue } from "@/lib/booking";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -18,11 +19,14 @@ function startOfDay(d: Date) {
 
 export default async function NurseProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ date?: string; time?: string }>;
 }) {
   const user = await requireUser("customer");
   const { id } = await params;
+  const { date, time } = await searchParams;
 
   if (user.status !== "active") {
     return (
@@ -194,28 +198,13 @@ export default async function NurseProfilePage({
         </div>
 
         <div>
-          <Card className="sticky top-24 flex flex-col gap-3">
-            <p className="text-2xl font-semibold text-ink">
-              ₹{Number(nurse.pricePerDay)}{" "}
-              <span className="text-sm font-normal text-muted">
-                /8-hr shift
-              </span>
-            </p>
-            <p className="text-sm text-muted">Rates vary 2 hrs – 3 days</p>
-            <p className="text-sm text-muted">
-              Gender:{" "}
-              {nurse.gender[0].toUpperCase() + nurse.gender.slice(1)}
-            </p>
-            <Link
-              href={`/book/${id}`}
-              className={buttonClasses("primary", "md", "mt-2 w-full")}
-            >
-              Select Dates &amp; Book
-            </Link>
-            <p className="text-xs text-muted text-center">
-              Bookings need at least 8 hours&apos; notice.
-            </p>
-          </Card>
+          <BookNowWidget
+            nurseId={id}
+            pricePerDay={Number(nurse.pricePerDay)}
+            gender={nurse.gender}
+            initialDate={date || toDateInputValue(suggestedBookableStart())}
+            initialTime={time || toTimeInputValue(suggestedBookableStart())}
+          />
         </div>
       </div>
     </div>

@@ -42,6 +42,14 @@ export function suggestedBookableStart(from: Date = new Date()) {
   return new Date(Math.ceil(earliest.getTime() / step) * step);
 }
 
+export function toDateInputValue(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+export function toTimeInputValue(d: Date) {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export const STATUS_LABELS: Record<string, string> = {
   pending_payment: "Awaiting payment",
   confirmed: "Confirmed",

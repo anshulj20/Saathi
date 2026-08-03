@@ -12,6 +12,7 @@ export function NurseCard({
   ratingAvg,
   ratingCount,
   pricePerDay,
+  profileHref,
 }: {
   id: string;
   name: string;
@@ -20,6 +21,7 @@ export function NurseCard({
   ratingAvg: number;
   ratingCount: number;
   pricePerDay: number;
+  profileHref?: string;
 }) {
   return (
     <Card className="flex flex-col gap-3">
@@ -44,7 +46,10 @@ export function NurseCard({
           <p className="font-semibold text-ink">₹{pricePerDay}</p>
           <p className="text-xs text-muted">per 8-hr shift</p>
         </div>
-        <Link href={`/nurse/${id}`} className={buttonClasses("outline", "sm")}>
+        <Link
+          href={profileHref ?? `/nurse/${id}`}
+          className={buttonClasses("outline", "sm")}
+        >
           View Profile
         </Link>
       </div>
