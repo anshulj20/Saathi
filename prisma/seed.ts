@@ -201,6 +201,63 @@ async function seedDemoNurses() {
   console.log(`${DEMO_NURSES.length} demo nurses ready (password: ${DEMO_PASSWORD})`);
 }
 
+const DEMO_CUSTOMERS = [
+  {
+    name: "Sanjana Rao",
+    phone: "+919800002001",
+    email: "sanjana.rao@demo.saathi.app",
+    locationText: "Jayanagar, Bengaluru",
+    patientName: "Radha Rao",
+    conditionSummary: "Recovering from a fall, needs mobility supervision",
+  },
+  {
+    name: "Karthik Subramaniam",
+    phone: "+919800002002",
+    email: "karthik.s@demo.saathi.app",
+    locationText: "Whitefield, Bengaluru",
+    patientName: "Subramaniam Iyer",
+    conditionSummary: "Type 2 diabetes management and companionship",
+  },
+  {
+    name: "Ananya Desai",
+    phone: "+919800002003",
+    email: "ananya.desai@demo.saathi.app",
+    locationText: "HSR Layout, Bengaluru",
+    patientName: "Kamala Desai",
+    conditionSummary: "Advanced dementia care",
+  },
+] as const;
+
+// Pre-activated (status: active) so they're ready to log in and use
+// immediately — no admin vetting step needed for these demo accounts.
+async function seedDemoCustomers() {
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
+  for (const customer of DEMO_CUSTOMERS) {
+    await prisma.user.upsert({
+      where: { email: customer.email },
+      update: {},
+      create: {
+        role: "customer",
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        passwordHash,
+        status: "active",
+        customerProfile: { create: { locationText: customer.locationText } },
+        patientProfile: {
+          create: {
+            patientName: customer.patientName,
+            conditionSummary: customer.conditionSummary,
+          },
+        },
+      },
+    });
+  }
+
+  console.log(`${DEMO_CUSTOMERS.length} demo customers ready (password: ${DEMO_PASSWORD})`);
+}
+
 // Search now filters by real-time availability, so demo nurses need actual
 // AvailabilitySlot rows or they'd never show up in search results.
 async function seedDemoAvailability() {
@@ -477,6 +534,7 @@ async function main() {
   await seedDemoNurses();
   await seedDemoAvailability();
   await seedDemoReviews();
+  await seedDemoCustomers();
 }
 
 main()
