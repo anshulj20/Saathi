@@ -22,11 +22,11 @@ export default async function NurseProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ date?: string; time?: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const user = await requireUser("customer");
   const { id } = await params;
-  const { date, time } = await searchParams;
+  const { date } = await searchParams;
 
   if (user.status !== "active") {
     return (
@@ -203,7 +203,7 @@ export default async function NurseProfilePage({
             pricePerDay={Number(nurse.pricePerDay)}
             gender={nurse.gender}
             initialDate={date || toDateInputValue(suggestedBookableStart())}
-            initialTime={time || toTimeInputValue(suggestedBookableStart())}
+            initialTime={toTimeInputValue(suggestedBookableStart())}
           />
         </div>
       </div>

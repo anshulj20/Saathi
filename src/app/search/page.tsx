@@ -7,14 +7,14 @@ import { TrackSearchPerformed } from "@/components/track-event";
 import { Card } from "@/components/ui/card";
 import { Select, Input, Label } from "@/components/ui/form";
 import { buttonClasses } from "@/lib/ui";
-import { suggestedBookableStart, toDateInputValue, toTimeInputValue } from "@/lib/booking";
+import { toDateInputValue } from "@/lib/booking";
 
 type SearchParams = {
   specialization?: string;
   location?: string;
   gender?: string;
-  date?: string;
-  time?: string;
+  from?: string;
+  till?: string;
 };
 
 export default async function SearchPage({
@@ -42,12 +42,17 @@ export default async function SearchPage({
     );
   }
 
-  const suggested = suggestedBookableStart();
-  const dateValue = params.date || toDateInputValue(suggested);
-  const timeValue = params.time || toTimeInputValue(suggested);
-  const hasTiming = Boolean(params.date && params.time);
-  const requestedStart = hasTiming ? new Date(`${dateValue}T${timeValue}:00`) : null;
-  const validStart = requestedStart && !Number.isNaN(requestedStart.getTime());
+  const today = toDateInputValue(new Date());
+  const fromValue = params.from || today;
+  const tillValue = params.till || fromValue;
+  const hasRange = Boolean(params.from && params.till);
+
+  const rangeStart = new Date(`${fromValue}T00:00:00`);
+  const rangeEnd = new Date(`${tillValue}T23:59:59.999`);
+  const validRange =
+    !Number.isNaN(rangeStart.getTime()) &&
+    !Number.isNaN(rangeEnd.getTime()) &&
+    rangeStart <= rangeEnd;
 
   const where: Prisma.NurseProfileWhereInput = {
     user: { status: "active" },
@@ -64,7 +69,7 @@ export default async function SearchPage({
 
   let nurses: Prisma.NurseProfileGetPayload<{ include: { user: true } }>[] = [];
 
-  if (validStart) {
+  if (hasRange && validRange) {
     const candidates = await prisma.nurseProfile.findMany({
       where,
       include: { user: true },
@@ -72,15 +77,14 @@ export default async function SearchPage({
     });
 
     const candidateIds = candidates.map((c) => c.userId);
-    const instant = requestedStart!;
 
     const [availableSlots, blockingBookings] = await Promise.all([
       prisma.availabilitySlot.findMany({
         where: {
           nurseUserId: { in: candidateIds },
           status: "available",
-          startTime: { lte: instant },
-          endTime: { gt: instant },
+          startTime: { lt: rangeEnd },
+          endTime: { gt: rangeStart },
         },
         select: { nurseUserId: true },
       }),
@@ -88,8 +92,8 @@ export default async function SearchPage({
         where: {
           nurseUserId: { in: candidateIds },
           status: { in: ["confirmed", "in_progress"] },
-          startTime: { lte: instant },
-          endTime: { gt: instant },
+          startTime: { lt: rangeEnd },
+          endTime: { gt: rangeStart },
         },
         select: { nurseUserId: true },
       }),
@@ -104,7 +108,7 @@ export default async function SearchPage({
   }
 
   const dep = JSON.stringify(params);
-  const profileParams = hasTiming ? `?date=${dateValue}&time=${timeValue}` : "";
+  const profileParams = hasRange ? `?date=${fromValue}` : "";
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 w-full">
@@ -118,12 +122,12 @@ export default async function SearchPage({
         className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8 bg-white border border-border rounded-xl p-5"
       >
         <div>
-          <Label htmlFor="date">Date needed</Label>
-          <Input id="date" name="date" type="date" defaultValue={dateValue} required />
+          <Label htmlFor="from">Needed from</Label>
+          <Input id="from" name="from" type="date" defaultValue={fromValue} required />
         </div>
         <div>
-          <Label htmlFor="time">Time needed</Label>
-          <Input id="time" name="time" type="time" defaultValue={timeValue} required />
+          <Label htmlFor="till">Needed till</Label>
+          <Input id="till" name="till" type="date" defaultValue={tillValue} required />
         </div>
         <div>
           <Label htmlFor="specialization">Specialization</Label>
@@ -167,23 +171,25 @@ export default async function SearchPage({
         </div>
       </form>
 
-      {!hasTiming && (
+      {!hasRange && (
         <p className="text-muted text-center py-16">
-          Pick a date and time above to see nurses available then.
+          Pick the dates you need care for to see nurses available then.
         </p>
       )}
 
-      {hasTiming && !validStart && (
+      {hasRange && !validRange && (
         <p className="text-danger text-center py-16">
-          That date/time doesn&apos;t look valid — try again.
+          &quot;Needed till&quot; can&apos;t be before &quot;needed
+          from&quot; — try again.
         </p>
       )}
 
-      {hasTiming && validStart && (
+      {hasRange && validRange && (
         <>
           <p className="text-sm text-muted mb-4">
             {nurses.length} verified nurse{nurses.length === 1 ? "" : "s"}{" "}
-            available {dateValue} at {timeValue}
+            available {fromValue}
+            {tillValue !== fromValue ? ` – ${tillValue}` : ""}
           </p>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -204,8 +210,8 @@ export default async function SearchPage({
 
           {nurses.length === 0 && (
             <p className="text-muted text-center py-16">
-              No nurses are available at that time — try a different date,
-              time, or filters.
+              No nurses are available in that window — try different dates
+              or filters.
             </p>
           )}
         </>
