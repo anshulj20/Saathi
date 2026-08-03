@@ -91,6 +91,83 @@ const DEMO_NURSES = [
     locationText: "HSR Layout, Bengaluru",
     bio: "Physiotherapy-trained nurse focused on mobility and rehabilitation support for elderly patients.",
   },
+  {
+    name: "Deepa Menon",
+    phone: "+919800000006",
+    email: "deepa.menon@demo.saathi.app",
+    specializations: ["Companionship", "Palliative care"],
+    experienceYears: 7,
+    pricePerDay: 1150,
+    gender: "female" as const,
+    locationText: "Indiranagar, Bengaluru",
+    bio: "Focuses on companionship-led palliative care, helping families navigate end-of-life care with dignity.",
+  },
+  {
+    name: "Suresh Kumar",
+    phone: "+919800000007",
+    email: "suresh.kumar@demo.saathi.app",
+    specializations: ["Elderly care", "Companionship"],
+    experienceYears: 8,
+    pricePerDay: 1000,
+    gender: "male" as const,
+    locationText: "Koramangala, Bengaluru",
+    bio: "Eight years supporting elderly patients living alone, with an emphasis on daily routine and companionship.",
+  },
+  {
+    name: "Kavya Pillai",
+    phone: "+919800000008",
+    email: "kavya.pillai@demo.saathi.app",
+    specializations: ["Dementia care", "Palliative care"],
+    experienceYears: 5,
+    pricePerDay: 1200,
+    gender: "female" as const,
+    locationText: "Whitefield, Bengaluru",
+    bio: "Trained in dementia-specific palliative care, with a gentle, structured approach to daily care.",
+  },
+  {
+    name: "Arjun Varma",
+    phone: "+919800000009",
+    email: "arjun.varma@demo.saathi.app",
+    specializations: ["Post-operative care", "Companionship"],
+    experienceYears: 4,
+    pricePerDay: 1050,
+    gender: "male" as const,
+    locationText: "Jayanagar, Bengaluru",
+    bio: "Supports patients through post-surgery recovery with a focus on mobility milestones and emotional support.",
+  },
+  {
+    name: "Meera Joseph",
+    phone: "+919800000010",
+    email: "meera.joseph@demo.saathi.app",
+    specializations: ["Mobility assistance", "Palliative care"],
+    experienceYears: 6,
+    pricePerDay: 1100,
+    gender: "other" as const,
+    locationText: "HSR Layout, Bengaluru",
+    bio: "Combines physiotherapy training with palliative care experience for patients with limited mobility.",
+  },
+  {
+    name: "Ravi Shankar",
+    phone: "+919800000011",
+    email: "ravi.shankar@demo.saathi.app",
+    specializations: ["Elderly care", "Post-operative care"],
+    experienceYears: 10,
+    pricePerDay: 1250,
+    gender: "male" as const,
+    locationText: "Indiranagar, Bengaluru",
+    bio: "A decade of experience across elderly care and post-surgical recovery in home settings.",
+  },
+  {
+    name: "Nandini Rao",
+    phone: "+919800000012",
+    email: "nandini.rao@demo.saathi.app",
+    specializations: ["Companionship", "Dementia care"],
+    experienceYears: 3,
+    pricePerDay: 900,
+    gender: "female" as const,
+    locationText: "Koramangala, Bengaluru",
+    bio: "Warm, patient approach to companionship care for early-stage dementia patients.",
+  },
 ] as const;
 
 async function seedDemoNurses() {
@@ -250,6 +327,48 @@ const DEMO_REVIEWS: {
     stars: 4,
     feedback: "Professional and punctual.",
   },
+  {
+    nurseEmail: "deepa.menon@demo.saathi.app",
+    reviewerEmail: "meera.krishnan@demo.saathi.app",
+    stars: 5,
+    feedback: "So much warmth and patience — made a hard time easier for the whole family.",
+  },
+  {
+    nurseEmail: "suresh.kumar@demo.saathi.app",
+    reviewerEmail: "rohan.sharma@demo.saathi.app",
+    stars: 5,
+    feedback: "My father genuinely enjoys his company, not just care — real companionship.",
+  },
+  {
+    nurseEmail: "kavya.pillai@demo.saathi.app",
+    reviewerEmail: "meera.krishnan@demo.saathi.app",
+    stars: 5,
+    feedback: "Structured, gentle, and very knowledgeable about dementia care specifically.",
+  },
+  {
+    nurseEmail: "arjun.varma@demo.saathi.app",
+    reviewerEmail: "rohan.sharma@demo.saathi.app",
+    stars: 4,
+    feedback: "Kept recovery on track and was encouraging throughout.",
+  },
+  {
+    nurseEmail: "meera.joseph@demo.saathi.app",
+    reviewerEmail: "meera.krishnan@demo.saathi.app",
+    stars: 5,
+    feedback: "Excellent with mobility support, very attentive and kind.",
+  },
+  {
+    nurseEmail: "ravi.shankar@demo.saathi.app",
+    reviewerEmail: "rohan.sharma@demo.saathi.app",
+    stars: 5,
+    feedback: "A decade of experience really shows — extremely competent and calm.",
+  },
+  {
+    nurseEmail: "nandini.rao@demo.saathi.app",
+    reviewerEmail: "meera.krishnan@demo.saathi.app",
+    stars: 4,
+    feedback: "Warm and patient, my mother took to her quickly.",
+  },
 ];
 
 async function seedDemoReviews() {
@@ -277,17 +396,23 @@ async function seedDemoReviews() {
     });
   }
 
-  // Skip re-seeding if reviews already exist (re-running the seed shouldn't duplicate).
-  const alreadySeeded = await prisma.rating.count({
-    where: { feedbackText: { in: DEMO_REVIEWS.map((r) => r.feedback) } },
-  });
-  if (alreadySeeded >= DEMO_REVIEWS.length) {
-    console.log("Demo reviews already seeded, skipping.");
-    return;
-  }
+  // Skip re-seeding a review that already exists (re-running the seed
+  // shouldn't duplicate it) — checked per-review so adding new entries to
+  // DEMO_REVIEWS doesn't re-create the ones already seeded.
+  const existingFeedback = new Set(
+    (
+      await prisma.rating.findMany({
+        where: { feedbackText: { in: DEMO_REVIEWS.map((r) => r.feedback) } },
+        select: { feedbackText: true },
+      })
+    ).map((r) => r.feedbackText)
+  );
 
-  let dayOffset = 30;
+  let dayOffset = 60;
   for (const review of DEMO_REVIEWS) {
+    dayOffset -= 2;
+    if (existingFeedback.has(review.feedback)) continue;
+
     const nurse = await prisma.user.findUniqueOrThrow({
       where: { email: review.nurseEmail },
     });
@@ -299,7 +424,6 @@ async function seedDemoReviews() {
 
     const startTime = new Date(Date.now() - dayOffset * 24 * 60 * 60 * 1000);
     const endTime = new Date(startTime.getTime() + 8 * 60 * 60 * 1000);
-    dayOffset -= 2;
 
     const booking = await prisma.booking.create({
       data: {
