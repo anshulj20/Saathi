@@ -42,6 +42,15 @@ export function suggestedBookableStart(from: Date = new Date()) {
   return new Date(Math.ceil(earliest.getTime() / step) * step);
 }
 
+/** Tomorrow's date — used as the booking widget's default date so it
+ * doesn't default to "today" (which is often already unbookable once
+ * duration is added on top of the 8-hour notice window). */
+export function tomorrow(from: Date = new Date()) {
+  const d = new Date(from);
+  d.setDate(d.getDate() + 1);
+  return d;
+}
+
 export function toDateInputValue(d: Date) {
   return d.toISOString().slice(0, 10);
 }

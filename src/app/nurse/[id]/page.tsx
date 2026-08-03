@@ -7,7 +7,7 @@ import { StarRatingDisplay } from "@/components/ui/star-rating";
 import { Card } from "@/components/ui/card";
 import { TrackProfileViewed } from "@/components/track-event";
 import { BookNowWidget } from "./book-now-widget";
-import { suggestedBookableStart, toDateInputValue, toTimeInputValue } from "@/lib/booking";
+import { suggestedBookableStart, tomorrow, toDateInputValue, toTimeInputValue } from "@/lib/booking";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -202,7 +202,7 @@ export default async function NurseProfilePage({
             nurseId={id}
             pricePerDay={Number(nurse.pricePerDay)}
             gender={nurse.gender}
-            initialDate={date || toDateInputValue(suggestedBookableStart())}
+            initialDate={date || toDateInputValue(tomorrow())}
             initialTime={toTimeInputValue(suggestedBookableStart())}
           />
         </div>
