@@ -4,6 +4,7 @@ config({ path: ".env.local" });
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { SPECIALIZATIONS } from "../src/lib/constants";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -35,7 +36,87 @@ async function seedAdmin() {
 
 const DEMO_PASSWORD = "demo1234";
 
-const DEMO_NURSES = [
+type DemoGender = "male" | "female" | "other";
+type DemoNurseSeed = {
+  name: string;
+  phone: string;
+  email: string;
+  specializations: string[];
+  experienceYears: number;
+  pricePerDay: number;
+  gender: DemoGender;
+  locationText: string;
+  bio: string;
+};
+
+// Systematically generated so search filters (specialization x gender x
+// location) essentially never dead-end at zero results: every
+// (location, gender) pair gets two nurses whose specializations together
+// cover all six SPECIALIZATIONS values.
+const COVERAGE_LOCATIONS = [
+  "Indiranagar",
+  "Koramangala",
+  "Jayanagar",
+  "Whitefield",
+  "HSR Layout",
+  "Malleshwaram",
+  "JP Nagar",
+];
+
+const FEMALE_NAMES = [
+  "Divya Shetty", "Swati Bhat", "Radhika Iyer", "Pooja Hegde", "Sowmya Rao",
+  "Vidya Krishnan", "Rekha Bhandari", "Sunitha Kamath", "Geetha Prasad",
+  "Yamini Chandra", "Bhavana Reddy", "Shalini Gowda", "Anjali Menon", "Priya Nair",
+];
+const MALE_NAMES = [
+  "Vijay Kumar", "Prakash Achar", "Manoj Bhatt", "Sanjay Gowda", "Deepak Shenoy",
+  "Ashok Bhandari", "Ganesh Pai", "Naveen Kamath", "Anand Shastri", "Vikram Holla",
+  "Rajesh Kulkarni", "Kiran Baliga", "Harish Adiga", "Srinivas Bhat",
+];
+const OTHER_NAMES = [
+  "Alex Fernandes", "Sam Pereira", "Jordan D'Souza", "Robin Lobo", "Casey Colaco",
+  "Riya Dias", "Noor Fernandes", "Avi Menezes", "Rio D'Costa", "Neel Fonseca",
+  "Sasha Braganza", "Kiran D'Mello", "Dev Pinto", "Zoya Rebello",
+];
+
+function generateCoverageNurses(): DemoNurseSeed[] {
+  const specHalves: [string[], string[]] = [
+    [...SPECIALIZATIONS].slice(0, 3),
+    [...SPECIALIZATIONS].slice(3, 6),
+  ];
+  const genderPools: { gender: DemoGender; names: string[] }[] = [
+    { gender: "female", names: FEMALE_NAMES },
+    { gender: "male", names: MALE_NAMES },
+    { gender: "other", names: OTHER_NAMES },
+  ];
+
+  const nurses: DemoNurseSeed[] = [];
+  let globalIndex = 0;
+
+  for (const location of COVERAGE_LOCATIONS) {
+    for (const { gender, names } of genderPools) {
+      specHalves.forEach((specs) => {
+        const name = names[globalIndex % names.length];
+        globalIndex += 1;
+        nurses.push({
+          name,
+          phone: `+9198005${String(10000 + globalIndex).padStart(5, "0")}`,
+          email: `demo.nurse.${globalIndex}@demo.saathi.app`,
+          specializations: specs,
+          experienceYears: 2 + ((globalIndex * 3) % 12),
+          pricePerDay: 900 + ((globalIndex * 47) % 500),
+          gender,
+          locationText: `${location}, Bengaluru`,
+          bio: `Experienced in ${specs.join(" and ").toLowerCase()}, based in ${location}.`,
+        });
+      });
+    }
+  }
+
+  return nurses;
+}
+
+const DEMO_NURSES: DemoNurseSeed[] = [
   {
     name: "Anitha Suresh",
     phone: "+919800000001",
@@ -168,7 +249,8 @@ const DEMO_NURSES = [
     locationText: "Koramangala, Bengaluru",
     bio: "Warm, patient approach to companionship care for early-stage dementia patients.",
   },
-] as const;
+  ...generateCoverageNurses(),
+];
 
 async function seedDemoNurses() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
