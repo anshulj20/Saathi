@@ -7,6 +7,7 @@ const navByRole: Record<string, { href: string; label: string }[]> = {
   customer: [
     { href: "/search", label: "Search" },
     { href: "/bookings", label: "My Bookings" },
+    { href: "/profile", label: "Profile" },
   ],
   nurse: [{ href: "/dashboard", label: "Dashboard" }],
   admin: [
